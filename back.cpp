@@ -11,6 +11,8 @@
 // #include <conio.h>
 #include <math.h>
 
+using namespace std;
+
 /************************* DEFINICOES ********************************/
 #define MAXCAM          5              // N�mero m�ximo de camadas
 #define MAXNEU          100            // N�mero m�ximo de neur�nios
@@ -56,7 +58,7 @@ void Neuronio :: Inicializar_Neuronio(int Numero_Pesos)
 
   // randomize();
 
-  #pragma omp paralle for simd num_threads(2)   
+  // #pragma omp paralle for simd num_threads(2)   
   for (i=0;i < Numero_Pesos;i++)
     W[i] = (double)((rand()%11)/10.0)*((rand()%3) - 1);
 }
@@ -79,7 +81,7 @@ double Neuronio :: Somatorio(double Entrada[])
   int i;
   double Som = 0;
 
-  // #pragma omp parallel for private(i) reduction(+:Som) 
+  // #pragma omp simd  
   for (i=0;i < Numero_Pesos;i++)
     Som += Entrada[i]*W[i];
 
@@ -149,9 +151,21 @@ void Camada :: Calcular_Erro_Final(double Erros[], double Y[])
 *********************************************************/
 void Camada :: Treinar_Neuronios(double Entrada[])
 {
-  int i;
-  for(i=0;i < Numero_Neuronios;i++)
-    Saida[i] = N[i].Somatorio(Entrada);
+ 
+
+  // #pragma omp parallel num_threads(2)
+  // {
+    // #pragma omp section
+    // #pragma omp  simd
+    for(int i=0;i < Numero_Neuronios;i++)
+      Saida[i] = N[i].Somatorio(Entrada);
+    // #pragma omp section
+    // #pragma omp simd
+    // for(int i=Numero_Neuronios/2;i < Numero_Neuronios;i++)
+    //   Saida[i] = N[i].Somatorio(Entrada);
+  // }
+
+  
 }
 
 /*********************************************************
@@ -162,7 +176,7 @@ void Camada :: Calcular_Erro_Camada_Saida(double Erros[], double Y[])
 {
   int i;
   
-  #pragma omp parallel for simd num_threads(2)  
+  // #pragma omp parallel for simd num_threads(2)  
   for(i=0;i < Numero_Neuronios;i++)
     Erros[i] = (Y[i] - Saida[i]) * Saida[i] * (1-Saida[i]);
 }
@@ -202,7 +216,7 @@ void Camada :: Ajustar_Pesos_Neuronios(double Erros[], double Entrada[])
   for(i=1;i < Numero_Pesos;i++)
   {
     Temp  = 0;
-    #pragma omp paralle for simd private(j) reduction(+:Temp)
+    // #pragma omp paralle for num_threads(2) simd private(j) 
     for(j=0;j < Numero_Neuronios;j++)
     {
       Temp += N[j].Erro_Peso(Erros[j],i);
@@ -292,20 +306,25 @@ void Rede :: Inicializar_Rede(int Numero_Camadas, int Numero_Linhas,
   Entrada = fopen("X.txt","rb");
   Saida = fopen("Y.txt","rb");
 
-  std::cout << "Entrada\n";
-  for(i=0;i < Numero_Linhas;i++)
+  // std::cout << "Entrada ARQURIVO X\n";
+  for(i=0;i < Numero_Linhas;i++){
+    
     for(j=0;j < Numero_Colunas_Entrada;j++){
       fread(&X[i][j],sizeof(double), 1, Entrada);
-      std::cout << "" << X[i][j] << "\n";
+      // std::cout << "" << X[i][j] <<"\t";
     }
+    // std::cout << "\n";
+  }
       
 
-  std::cout << "Saida\n"; 
-  for(i=0;i < Numero_Linhas;i++)
+  std::cout << "Saida ARQUIVO Y \n"; 
+  for(i=0;i < Numero_Linhas;i++){
     for(j=0;j < Numero_Colunas_Saida;j++){
       fread(&Y[i][j],sizeof(double), 1, Saida);
-      std::cout << "" << Y[i][j] << "\n";
+      // std::cout << "" << Y[i][j] << "\t";
     }
+    // std::cout <<"\n";
+  }
       
 
   fclose(Entrada);
@@ -417,7 +436,7 @@ Erros[MAXNEU], Somatorio_Erro, Maior;
     C[Camada_Saida].Calcular_Erro_Final(Erros,Y[Linha_Escolhida]);
 
     Somatorio_Erro = 0;
-    // ? #pragma omp parallel for private(i) reduction(+:Somatorio_Erro) schedule(dynamic)
+    // #pragma omp parallel for simd private(i) reduction(+:Somatorio_Erro) schedule(dynamic)
     for(i=0; i < Numero_Colunas_Saida;i++)
       Somatorio_Erro += pow(Erros[i],2);
 
@@ -428,7 +447,7 @@ Erros[MAXNEU], Somatorio_Erro, Maior;
     {
       Dinamico = 0;
       // gotoxy(1,10);
-      std::cout << "\n\nErro = " << Somatorio_Erro << "   ";
+      // std::cout << "\n\nErro = " << Somatorio_Erro << "   ";
       Maior = Somatorio_Erro;
     }
     else
@@ -453,8 +472,8 @@ Erros[MAXNEU], Somatorio_Erro, Maior;
     if(Contador%10000 == 0)
     {
       // gotoxy(1,10);
-      std::cout << "\nIteracoes = " << Contador;
-      std::cout << "\n\nBeta = " << BETA << "  ";
+      // std::cout << "\nIteracoes = " << Contador;
+      // std::cout << "\n\nBeta = " << BETA << "  ";
     }
 
     /* Op��o de escape */
@@ -465,7 +484,7 @@ Erros[MAXNEU], Somatorio_Erro, Maior;
 }
 
 /****************** PROGRAMA PRINCIPAL *****************************/
-int main()
+int main(void)
 {
   int Numero_Camadas;                 // N�mero de camadas da rede
   int Numero_Linhas;                  // N�mero de linhas de entrada
@@ -490,42 +509,38 @@ int main()
 
     if(Continua == 'r')
     {
-      std::cout << "\n\nDigite o numero de camadas: ";
-      std::cin >> Numero_Camadas;
+      cout << "\n\nDigite o numero de camadas: ";
+      cin >> Numero_Camadas;
 
       for(i=0; i < Numero_Camadas;i++)
       {
-        std::cout << "\n\nDigite o numero de neuronios da camada " << i << " : ";
-        std::cin >> Numero_Neuronio_Camada[i];
+        cout << "\n\nDigite o numero de neuronios da camada " << i << " : ";
+        cin >> Numero_Neuronio_Camada[i];
       }
 
       R.Inicializar_Rede(Numero_Camadas,Numero_Linhas,Numero_Colunas_Entrada,Numero_Colunas_Saida,Numero_Neuronio_Camada);
-      #pragma omp parallel
-      #pragma omp single
       R.Treinar();
     }
 
-    std::cout << "\n\nDigite as entradas da rede:\n";
+    // cout << "\n\nDigite as entradas da rede:\n";
 
-    std::cout << "\nEntradas quant " << Numero_Colunas_Entrada << " : ";
-    for(i=0; i < Numero_Colunas_Entrada;i++)
-    {
-      // std::cout << "\nEntrada " <<  << " : ";
-      std::cin >> Entrada[i];
-      Entrada[i] = static_cast <float> (rand()) / static_cast <float> (1);
-    }
+    // for(i=0; i < Numero_Colunas_Entrada;i++)
+    // {
+    //   cout << "\nEntrada " << i << " : ";
+    //   cin >> Entrada[i];
+    // }
 
     R.Calcular_Resultado(Entrada,Saida);
 
-    for(i=1; i <= Numero_Colunas_Saida;i++)
-    {
-      std::cout << "\nSaida " << i << " : " << Saida[i];
-    }
-
-    // std::cout << "\n\nContinua ? (s/n/r)";
-    // std::cin >> Continua;
     Continua = 'n';
 
+    // for(i=1; i <= Numero_Colunas_Saida;i++)
+    // {
+    //   cout << "\nSaida " << i << " : " << Saida[i];
+    // }
+
+    // cout << "\n\nContinua ? (s/n/r)";
+    // cin >> Continua;
   }
 }
 
