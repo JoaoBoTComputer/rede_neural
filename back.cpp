@@ -11,8 +11,6 @@
 // #include <conio.h>
 #include <math.h>
 
-using namespace std;
-
 /************************* DEFINICOES ********************************/
 #define MAXCAM          5              // N�mero m�ximo de camadas
 #define MAXNEU          100            // N�mero m�ximo de neur�nios
@@ -44,29 +42,107 @@ class Neuronio
     void Ajustar_Peso(double Entrada, double Erro, int Indice_Peso);   // Ajusta os valores dos pesos
     double Somatorio(double Entrada[]);             // Retorna os pesos e quantos s�o
     double Erro_Peso(double Erro,int Indice_Peso);
+    double getW();
 };
 
 /*********************************************************
   Inicializa o N�mero de Pesos e tamb�m os valores
   iniciais dos pesos
 *********************************************************/
+double Neuronio::getW()
+{
+  return *W;
+}
+
+//PARALELIZADO PRONTO
 void Neuronio :: Inicializar_Neuronio(int Numero_Pesos)
 {
   int i;
 
+
   this -> Numero_Pesos = Numero_Pesos;
 
-  // randomize();
+  for (i=0;i < Numero_Pesos;i++){
+     W[i] = (double)((rand()%11)/10.0)*((rand()%3) - 1);
+  }
+   
 
-  // #pragma omp paralle for simd num_threads(2)   
-  for (i=0;i < Numero_Pesos;i++)
-    W[i] = (double)((rand()%11)/10.0)*((rand()%3) - 1);
+  // for(int i =0; i < Numero_Pesos;i++){
+  //   int r1 = rand();
+  //   int r2 = rand();
+
+    
+  // }
+  
+
+  // #pragma omp parallel num_threads(4)
+  // {
+    // srand(int(time(NULL)) ^ omp_get_thread_num());
+  //   #pragma for simd private(i) schedule(dynamic,1000)
+  //   for ( i=0;i < Numero_Pesos;i++){
+  //     W[i] = (double)((rand()%11)/10.0)*((rand()%3) - 1);
+  //   }
+  // } 
+
+  // int a;
+
+  // #pragma omp parallel sections private(a)
+  // { 
+  //   #pragma omp section
+  //   #pragma for  schedule(dynamic,1000)  
+  //   for ( int i=0;i < Numero_Pesos/2;i++){
+  //   // #pragma omp critical
+      
+  //      a = (double)((rand()%11)/10.0)*((rand()%3) - 1);
+  //     //  #pragma omp critical
+  //      W[i] = a;
+     
+  //   }
+
+  //   #pragma omp section 
+  //   #pragma for  schedule(dynamic,1000)
+  //   for ( int i=Numero_Pesos/2;i < Numero_Pesos;i++){
+  //   // #pragma omp critical
+      
+  //      a = (double)((rand()%11)/10.0)*((rand()%3) - 1);
+  //     //  #pragma omp critical
+  //      W[i] = a;
+  //   }
+  // }
+
+
+  // #pragma omp parallel for simd    num_threads (4)  schedule(static,1000)
+  
+
+  // for ( i=0;i < Numero_Pesos;i++){
+  //   W[i] = (double)((rand()%11)/10.0)*((rand()%3) - 1);
+  // }
+
+    
+
+
+  // #pragma omp parallel num_threads(2)
+  // {
+  //   #pragma omp single 
+  //   #pragma   for simd   
+  //   for (int i=0;i < Numero_Pesos/2;i++)
+  //     W[i] = (double)((rand()%11)/10.0)*((rand()%3) - 1);
+
+  //   #pragma omp single nowait
+  //   #pragma  for simd 
+  //   for (int i=Numero_Pesos/2;i < Numero_Pesos;i++)
+  //     W[i] = (double)((rand()%11)/10.0)*((rand()%3) - 1);
+  
+  // }
+
+  
 }
 
 /*********************************************************
   Multilica o Erro da sa�da de um neur�nio por um Peso de
   Indice_Peso
 *********************************************************/
+
 double Neuronio :: Erro_Peso(double Erro, int Indice_Peso)
 {
   return(Erro*W[Indice_Peso]);
@@ -78,14 +154,68 @@ double Neuronio :: Erro_Peso(double Erro, int Indice_Peso)
 *********************************************************/
 double Neuronio :: Somatorio(double Entrada[])
 {
-  int i;
+  // int i;
   double Som = 0;
-
-  // #pragma omp simd  
-  for (i=0;i < Numero_Pesos;i++)
+  // #pragma omp parallel for simd reduction(+:Som) schedule(dynamic,1000)
+  // #pragma omp parallel for simd reduction(+:Som)  schedule(dynamic,1000)
+  for (int i=0;i < Numero_Pesos;i++)
     Som += Entrada[i]*W[i];
+  
 
-  return Som;
+  // double Som2 = 0;
+  
+  // int nthreads, tid;
+
+  // #pragma omp parallel num_threads(2) private(nthreads, tid)
+  // {
+  //   tid = omp_get_thread_num();
+
+  //   if(tid == 0)
+  //     for (int i=0;i < Numero_Pesos/2;i++)
+  //       Som += Entrada[i]*W[i];
+  //   else
+  //     for (int i=Numero_Pesos/2;i < Numero_Pesos;i++)
+  //       Som2 += Entrada[i]*W[i];
+  // }
+
+  // Som= Som + Som2;
+
+
+  // #pragma omp parallel num_threads(2)
+  // { 
+  //   #pragma omp for  nowait
+  //   for (int i=0;i < Numero_Pesos/2;i++){
+  //     #pragma omp atomic
+  //     Som += Entrada[i]*W[i];
+  //     std::cout <<"for 1";
+  //   }
+
+      
+
+  //   #pragma omp for  nowait
+  //   for (int i=Numero_Pesos/2;i < Numero_Pesos;i++){
+  //     #pragma omp atomic
+  //     Som += Entrada[i]*W[i];
+  //     std::cout <<"for 2";
+  //   }
+      
+  // }
+
+
+
+  // #pragma omp parallel sections  private(i) shared(W,Entrada) reduction(+:Som)   num_threads(2)
+  // { 
+  //   #pragma omp section
+  //   // #pragma  for  schedule(static)
+  //   for (i=0;i < Numero_Pesos/2;i++)
+  //     Som += Entrada[i]*W[i];
+  //   #pragma omp section
+  //   // #pragma  for schedule(static)
+  //   for (i=Numero_Pesos/2;i < Numero_Pesos;i++)
+  //     Som += Entrada[i]*W[i];
+  // }
+
+  return Som ;
 }
 
 /*********************************************************
@@ -151,20 +281,25 @@ void Camada :: Calcular_Erro_Final(double Erros[], double Y[])
 *********************************************************/
 void Camada :: Treinar_Neuronios(double Entrada[])
 {
- 
+      // int nthreads, tid;
+      int i;
+      for( i=0;i < Numero_Neuronios;i++)
+          Saida[i] = N[i].Somatorio(Entrada);
 
-  // #pragma omp parallel num_threads(2)
-  // {
-    // #pragma omp section
-    // #pragma omp  simd
-    for(int i=0;i < Numero_Neuronios;i++)
-      Saida[i] = N[i].Somatorio(Entrada);
-    // #pragma omp section
-    // #pragma omp simd
-    // for(int i=Numero_Neuronios/2;i < Numero_Neuronios;i++)
-    //   Saida[i] = N[i].Somatorio(Entrada);
-  // }
-
+      // #pragma omp parallel private(nthreads, tid) shared(i)
+      // {
+      //   tid = omp_get_thread_num();
+      //   if(tid == 0){
+      //     for(i=0;i < Numero_Neuronios/2;i++)
+      //       Saida[i] = N[i].Somatorio(Entrada);
+      //     // std::cout<< omp_get_num_threads();
+      //   }
+          
+      //   for( i=Numero_Neuronios/2;i < Numero_Neuronios;i++)
+      //       Saida[i] = N[i].Somatorio(Entrada);
+      // }
+     
+      
   
 }
 
@@ -176,7 +311,7 @@ void Camada :: Calcular_Erro_Camada_Saida(double Erros[], double Y[])
 {
   int i;
   
-  // #pragma omp parallel for simd num_threads(2)  
+   
   for(i=0;i < Numero_Neuronios;i++)
     Erros[i] = (Y[i] - Saida[i]) * Saida[i] * (1-Saida[i]);
 }
@@ -190,7 +325,7 @@ void Camada :: Calcular_Erro_Camada(double Erros[])
 
   
     int i;
-    #pragma omp parallel for simd num_threads(2)  
+    // #pragma omp parallel for simd private(i) schedule(dynamic,1000)
     for(i=0;i < Numero_Neuronios;i++){
       Erros[i] = Saida[i] * (1-Saida[i]) * Erros[i];
     }
@@ -212,11 +347,11 @@ void Camada :: Ajustar_Pesos_Neuronios(double Erros[], double Entrada[])
   /* C�lculo do Somat�rio que ser� usado para o c�lculo do erro
      da camada anterior */
 
-  // #pragma omp parallel for  private(i,j) schedule(static,100)
+  // #pragma omp parallel for  simd private(i)  
   for(i=1;i < Numero_Pesos;i++)
   {
     Temp  = 0;
-    // #pragma omp paralle for num_threads(2) simd private(j) 
+    //  #pragma omp parallel for  reduction(+:Temp) schedule(dynamic)
     for(j=0;j < Numero_Neuronios;j++)
     {
       Temp += N[j].Erro_Peso(Erros[j],i);
@@ -227,10 +362,28 @@ void Camada :: Ajustar_Pesos_Neuronios(double Erros[], double Entrada[])
   /* Ajusta os pesos de cada neur�nio  de acordo com o erro
      da camada da frente e a sa�da da pr�pria camada */
 
+  // int soma = 0;
+  // for(i=0;i < Numero_Neuronios;i++){
+  //   #pragma omp parallel for simd
+    
+  //   for(j=0;j < Numero_Pesos;j++){
+      
+  //     W[j]+= BETA*Erros[i]*Entrada[j];;
+      
+  //     N[i].Ajustar_Peso(Entrada[j],Erros[i],j);
+
+
+  //   }
+
+  //   N[i].Ajustar_Peso(soma);
+
+      
+  // }
+
   
   for(i=0;i < Numero_Neuronios;i++){
+    // #pragma omp parallel for simd schedule(dynamic)
     for(j=0;j < Numero_Pesos;j++){
-     
       N[i].Ajustar_Peso(Entrada[j],Erros[i],j);
     }
       
@@ -251,8 +404,9 @@ void Camada :: Ajustar_Pesos_Neuronios(double Erros[], double Entrada[])
 *********************************************************/
 void Camada :: Funcao_Ativacao()
 {
+
   int i;
-  //?
+  // #pragma omp parallel for  private(i)  schedule(dynamic,1000)
   for(i=0;i < Numero_Neuronios;i++)
     Saida[i] = 1/(1+ exp(-Saida[i]));
 }
@@ -265,6 +419,9 @@ void Camada :: Retornar_Saida(double Linha[])
   int i;
 
   Linha[0] = 1;
+
+  // Não tem ganho e nem perda
+ // #pragma omp paralle for simd private(i)
   for(i=1;i <= Numero_Neuronios;i++)
     Linha[i] = Saida[i-1];
 }
@@ -317,7 +474,7 @@ void Rede :: Inicializar_Rede(int Numero_Camadas, int Numero_Linhas,
   }
       
 
-  std::cout << "Saida ARQUIVO Y \n"; 
+  // std::cout << "Saida ARQUIVO Y \n"; 
   for(i=0;i < Numero_Linhas;i++){
     for(j=0;j < Numero_Colunas_Saida;j++){
       fread(&Y[i][j],sizeof(double), 1, Saida);
@@ -350,8 +507,6 @@ void Rede :: Calcular_Resultado(double Entrada[], double Saida[])
       C[i].Treinar_Neuronios(Entrada);
       C[i].Funcao_Ativacao();
       C[i].Retornar_Saida(Saida);
-
-    
     
     for (j=0; j < MAXNEU; j++)
       Entrada[j] = Saida[j];
@@ -436,7 +591,6 @@ Erros[MAXNEU], Somatorio_Erro, Maior;
     C[Camada_Saida].Calcular_Erro_Final(Erros,Y[Linha_Escolhida]);
 
     Somatorio_Erro = 0;
-    // #pragma omp parallel for simd private(i) reduction(+:Somatorio_Erro) schedule(dynamic)
     for(i=0; i < Numero_Colunas_Saida;i++)
       Somatorio_Erro += pow(Erros[i],2);
 
@@ -509,35 +663,36 @@ int main(void)
 
     if(Continua == 'r')
     {
-      cout << "\n\nDigite o numero de camadas: ";
-      cin >> Numero_Camadas;
+      std::cout << "\n\nDigite o numero de camadas: ";
+      std::cin >> Numero_Camadas;
 
       for(i=0; i < Numero_Camadas;i++)
       {
-        cout << "\n\nDigite o numero de neuronios da camada " << i << " : ";
-        cin >> Numero_Neuronio_Camada[i];
+        std::cout << "\n\nDigite o numero de neuronios da camada " << i << " : ";
+        std::cin >> Numero_Neuronio_Camada[i];
       }
 
       R.Inicializar_Rede(Numero_Camadas,Numero_Linhas,Numero_Colunas_Entrada,Numero_Colunas_Saida,Numero_Neuronio_Camada);
+      // #pragma omp parallel
       R.Treinar();
     }
 
-    // cout << "\n\nDigite as entradas da rede:\n";
+    std::cout << "\n\nDigite as entradas da rede:\n";
 
-    // for(i=0; i < Numero_Colunas_Entrada;i++)
-    // {
-    //   cout << "\nEntrada " << i << " : ";
-    //   cin >> Entrada[i];
-    // }
+    for(i=0; i < Numero_Colunas_Entrada;i++)
+    {
+      std::cout << "\nEntrada " << i << " : ";
+      std::cin >> Entrada[i];
+    }
 
     R.Calcular_Resultado(Entrada,Saida);
 
     Continua = 'n';
 
-    // for(i=1; i <= Numero_Colunas_Saida;i++)
-    // {
-    //   cout << "\nSaida " << i << " : " << Saida[i];
-    // }
+    for(i=1; i <= Numero_Colunas_Saida;i++)
+    {
+      std::cout << "\nSaida " << i << " : " << Saida[i];
+    }
 
     // cout << "\n\nContinua ? (s/n/r)";
     // cin >> Continua;
